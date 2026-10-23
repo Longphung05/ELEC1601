@@ -1,5 +1,5 @@
 #include <Servo.h>
-
+//Full scenarios 0-8 teehee
 Servo servoLeft;
 Servo servoRight;
 
