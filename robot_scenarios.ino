@@ -12,14 +12,12 @@ const int rightLed = 2, rightRx = 3, rightRed = A0;
 const int calibrationMode = 0;
 
 // frequencies for each sensor - change if a sensor is too sensitive / not sensitive enough
-// FIX: now 5 entries to match the "i < 5" loops (was 4 -> read past the end of the array)
 long leftFreqs[5]  = {38000, 40500, 43000, 45000, 47000};
 long midFreqs[5]   = {38000, 40500, 43000, 45000, 47000};
 long rightFreqs[5] = {38000, 40500, 43000, 45000, 47000};
 
 // distance (cm) for each score. score = how many frequencies saw the wall
 // 99 = no wall. THESE ARE PLACEHOLDERS - fill in after calibrating
-// FIX: now 6 entries (score can be 0-5). Was 5 -> score 5 (closest!) read past the end
 //              score:   0   1   2   3   4    5
 float leftTable[6]  = {99, 10, 5, 3, 1.5, 0.5};
 float midTable[6]   = {99, 10, 5, 3, 1.5, 0.5};
@@ -31,10 +29,10 @@ const int WALL = 12;          // closer than this = there's a wall
 const int FRONT_CLEAR = 10;   // front is clear if further than this
 const int TURN_MIN = 3;       // front wall has to be between these for a turn / dead end
 const int TURN_MAX = 8;
-const float TOO_CLOSE = 1;    // scenario 5/6: this close to one wall (FIX: needs a table value <= this, now 0.5)
+const float TOO_CLOSE = 1;    // scenario 5/6: this close to one wall
 const int DIFF = 4;           // and this much closer than the other side
 const int ANGLE_CLOSE = 5;    // scenario 7/8: side and front this close
-const int CORNER_CLOSE = 3;   // scenario 9: left and front REALLY close
+const float CORNER_CLOSE = 1.5; // scenario 9/10: side and front LESS than this
 const int FRONT_STOP = 3;     // stop driving if front gets this close
 
 // times in ms - tune these in the lab
@@ -80,7 +78,7 @@ void loop() {
   // the robot may still be driving while this runs (~90 ms) - that's on purpose
   readSensors();
 
-  // FIX: safety stop - if the front wall is this close, stop the wheels before deciding what to do
+  // safety stop - if the front wall is this close, stop the wheels before deciding what to do
   if (midCm <= FRONT_STOP) {
     stopRobot();
   }
@@ -95,7 +93,8 @@ void loop() {
   if (midCm >= FRONT_CLEAR && rightCm <= TOO_CLOSE && leftCm - rightCm >= DIFF) scenario = 6;
   if (leftCm <= ANGLE_CLOSE && midCm <= ANGLE_CLOSE && rightCm - leftCm >= DIFF) scenario = 7;
   if (rightCm <= ANGLE_CLOSE && midCm <= ANGLE_CLOSE && leftCm - rightCm >= DIFF) scenario = 8;
-  if (leftCm <= CORNER_CLOSE && midCm <= CORNER_CLOSE) scenario = 9;
+  if (leftCm < CORNER_CLOSE && midCm < CORNER_CLOSE) scenario = 9;
+  if (rightCm < CORNER_CLOSE && midCm < CORNER_CLOSE) scenario = 10;
 
   Serial.print("L ");
   Serial.print(leftCm);
@@ -187,6 +186,13 @@ void loop() {
       turnLeft(TURN_FIX);
       backward(CORNER_BACK);
       turnRight(TURN_RETURN);
+      break;
+
+    case 10: // stuck in front-right corner - mirror of 9: turn right, reverse, turn back
+      showCode(0, 2, 2);
+      turnRight(TURN_FIX);
+      backward(CORNER_BACK);
+      turnLeft(TURN_RETURN);
       break;
   }
   // no stopping here - loop() runs again straight away and scans again
@@ -288,7 +294,7 @@ void driveUntilCorridor() {
   for (int i = 0; i < 30; i++) {   // gives up after 30 checks (about 3 sec)
     readSensors();
     if (midCm <= FRONT_STOP) {
-      stopRobot();                 // FIX: actually stop, don't just leave the wheels running
+      stopRobot();
       break;
     }
     if (leftCm <= WALL && rightCm <= WALL) {
